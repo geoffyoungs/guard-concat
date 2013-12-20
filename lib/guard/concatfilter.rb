@@ -3,9 +3,9 @@ require 'guard/guard'
 require 'guard/watcher'
 
 module Guard
-  class Concat < Guard
+  class ConcatFilter < Guard
 
-    VERSION = '0.0.4'
+    VERSION = '0.0.6'
 
     def initialize(watchers=[], opts={})
       @output = "#{opts[:output]}.#{opts[:type]}"
@@ -19,7 +19,6 @@ module Guard
 
     def run_on_changes(paths)
       concat
-      UI.info "Concatenated #{@output}"
     end
 
     # The actual concat method
@@ -41,7 +40,20 @@ module Guard
         content << File.read(file)
         content << "\n"
       end
-      File.open(@output, "w"){ |f| f.write content.strip }
+
+      if @opts[:outputs]
+        @opts[:outputs].each do |name|
+          output = "#{name}.#{@opts[:type]}"
+          local = content
+          local = @opts[:filter].call(output, local) if @opts[:filter]
+          File.open(output, "w"){ |f| f.write local.strip }
+          UI.info "Concatenated #{output}"
+        end
+      else
+        content = @opts[:filter].call(@output, content) if @opts[:filter]
+        File.open(@output, "w"){ |f| f.write content.strip }
+        UI.info "Concatenated #{@output}"
+      end
     end
 
     def input_dir
